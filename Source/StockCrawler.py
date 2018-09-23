@@ -36,18 +36,18 @@ if not ref_xls_file.is_file() :
 ref_xls_reader = pd.ExcelFile(ref_xls_file_name, encoding='utf-8')
 ref_df = ref_xls_reader.parse("Dashboard")
 ref_xls_reader.close()
-ref_df = ref_df.set_index('代號')
+ref_df = ref_df.set_index(u"代號")
 target_stocks = list(ref_df.index)
 #target_stocks = [1101]
 
 # get 月成交資訊 trading record for interested stocks
 month_range = {
-#    2013: range(1,13),
-#    2014: range(1,13),
-#    2015: range(1,13),
-#    2016: range(1,13),
-#    2017: range(1,13),
-    2018: range(1,2) # as of 2018/03/11 no data for Q1 yet
+    2013: range(1,13),
+    2014: range(1,13),
+    2015: range(1,13),
+    2016: range(1,13),
+    2017: range(1,13),
+#    2018: range(1,6) # as of 2018/03/11 no data for Q1 yet
 }
 update_latest_monthly = False # flag to update un-finished or latest monthly reports
 raw_individual_monthly_trading_table = {}
@@ -64,7 +64,7 @@ for year in year_range :
         if (co_id in IPO_Date.keys()): # this stock is still young
             if (year < IPO_Date[co_id][0]):
                 continue
-        co_name = ref_df.loc[co_id, '公司']
+        co_name = ref_df.loc[co_id, u'公司']
         sheet_name = "%s_%d" %(month_string, co_id)
         xls_file_name = path_name + month_string + '_' + str(co_id) + '.xlsx'
         xls_file_now = Path(xls_file_name)
@@ -82,16 +82,16 @@ for year in year_range :
             # end of co_id loop
             xls_reader.close()
             if (df_now is not None):
-                if ('月份' in df_now.columns):
-                    df_now = df_now.set_index('月份')
+                if (u'月份' in df_now.columns):
+                    df_now = df_now.set_index(u'月份')
                 else:
-                    assert('月' in df_now.columns)
-                    if (df_now.iloc[0][0] == '月'):
+                    assert(u'月' in df_now.columns)
+                    if (df_now.iloc[0][0] == u'月'):
                         df_now = df_now.drop(index=0)
                         xls_writer = pd.ExcelWriter(xls_file_name, engine='xlsxwriter')
                         df_now.to_excel(xls_writer, sheet_name=sheet_name)
                         xls_writer.save()
-                    df_now = df_now.set_index('月')
+                    df_now = df_now.set_index(u'月')
                 if (df_now.index[-1] == 12 or df_now.index[-1] == str(12) or \
                     (year == year_range[-1] and update_latest_monthly == False)) :
                     print("Got %s from xls" %sheet_name)
@@ -113,7 +113,7 @@ for year in year_range :
 
 
 quarter_range = {
-        2013: range(1,5),
+#        2013: range(1,5),
 #        2014: range(2,5),
 #        2015: range(2,5),
 #        2016: range(1,5),
@@ -122,16 +122,16 @@ quarter_range = {
 }
 
 combined_quarterly_tables = [
-        'SII綜合損益彙總表',
-        'OTC綜合損益彙總表',
-        'SII資產負債彙總表',
-        'OTC資產負債彙總表',
-        'SII營益分析彙總表',
-        'OTC營益分析彙總表']
+        u'SII綜合損益彙總表',
+        u'OTC綜合損益彙總表',
+        u'SII資產負債彙總表',
+        u'OTC資產負債彙總表',
+        u'SII營益分析彙總表',
+        u'OTC營益分析彙總表']
 
 combined_monthly_tables = [
-        'SII每月營業收入彙總表',
-        'OTC每月營業收入彙總表']
+        u'SII每月營業收入彙總表',
+        u'OTC每月營業收入彙總表']
 
 raw_quarterly_table = {}
 raw_monthly_table = {}
@@ -153,7 +153,7 @@ for year in quarter_range.keys() :
                 print("Reading %s from %s" %(sheet_name, xls_file_name))
                 try:
                     df_now = xls_reader.parse(sheet_name)
-                    df_now = df_now.set_index('公司代號')
+                    df_now = df_now.set_index(u'公司代號')
                 except:
                     df_now = None
                 raw_quarterly_table[sheet_name] = df_now
@@ -163,7 +163,7 @@ for year in quarter_range.keys() :
                     print("Reading %s from %s" %(sheet_name, xls_file_name))
                     try:
                         df_now = xls_reader.parse(sheet_name)
-                        df_now = df_now.set_index('公司代號')
+                        df_now = df_now.set_index(u'公司代號')
                     except:
                         df_now = None
                     raw_monthly_table[sheet_name] = df_now
@@ -193,9 +193,9 @@ for year in quarter_range.keys() :
 iq_tables = {}
 
 iq_dict = {
-    '資產負債表': 'asset_',
-    '現金流量表': 'cashflow_',
-    '綜合損益表': 'pnl_'
+    u'資產負債表': 'asset_',
+    u'現金流量表': 'cashflow_',
+    u'綜合損益表': 'pnl_'
 }
 
 for iqd_now in iq_dict.keys() :
@@ -209,7 +209,7 @@ for iqd_now in iq_dict.keys() :
             except:
                 os.mkdir(directory)      
             for co_id in target_stocks:
-                co_name = ref_df.loc[co_id, '公司']
+                co_name = ref_df.loc[co_id, u'公司']
                 if (co_id in IPO_Date.keys()) : # this stock is still young
                     if (year < IPO_Date[co_id][0] or (year == IPO_Date[co_id][0] and quarter <= ((IPO_Date[co_id][1]/3)+1))) :
                         print("%s is not IPO yet in %sQ%s" %(co_name, year, quarter))
@@ -225,11 +225,11 @@ for iqd_now in iq_dict.keys() :
                     df_now = xls_reader.parse(sheet_name)
                     # use next line as column if it wasn't properly set
                     if (df_now.columns[0] == 0): df_now.columns = df_now.iloc[0]
-                    if ('會計項目' in df_now.columns):
-                        df_now = df_now.set_index('會計項目')
+                    if (u'會計項目' in df_now.columns):
+                        df_now = df_now.set_index(u'會計項目')
                     else :
-                        assert('會計科目' in df_now.columns)
-                        df_now = df_now.set_index('會計科目')
+                        assert(u'會計科目' in df_now.columns)
+                        df_now = df_now.set_index(u'會計科目')
                     xls_reader.close()
                     df_now = df_now.drop_duplicates(keep='last')
                     iq_tables[table_name] = df_now
@@ -255,15 +255,15 @@ for iqd_now in iq_dict.keys() :
 print ("Finished DataFrame preparation! Next step is to prepare data into Excel Stock model!")
 
 summary_columns = {
-        "現金及約當現金總額": ('asset_', "現金及約當現金"),
-        "現金及約當現金合計": ('asset_', "現金及約當現金"),
-        "應收票據淨額": ("asset_", "應收"),
-        "應收帳款淨額": ("asset_", "應收"),
-        "存貨合計":("asset_", "存貨"),
-        "無形資產合計": ("asset_", "無形資產"),
-        "營業活動之淨現金流入（流出）":("cashflow_", "淨現金流"),
-        "投資活動之淨現金流入（流出）":("cashflow_", "淨現金流"),
-        "籌資活動之淨現金流入（流出）":("cashflow_", "淨現金流")}
+        u"現金及約當現金總額": ('asset_', u"現金及約當現金"),
+        u"現金及約當現金合計": ('asset_', u"現金及約當現金"),
+        u"應收票據淨額": ("asset_", u"應收"),
+        u"應收帳款淨額": ("asset_", u"應收"),
+        u"存貨合計":("asset_", u"存貨"),
+        u"無形資產合計": ("asset_", u"無形資產"),
+        u"營業活動之淨現金流入（流出）":("cashflow_", u"淨現金流"),
+        u"投資活動之淨現金流入（流出）":("cashflow_", u"淨現金流"),
+        u"籌資活動之淨現金流入（流出）":("cashflow_", u"淨現金流")}
 
 # prepare columns of summary table
 targ_col_list = [summary_columns[idx_now][1] for idx_now in summary_columns.keys()]
@@ -272,10 +272,10 @@ targ_col_set = set(targ_col_list)
 targ_idx_set = [str(co_id) for co_id in target_stocks]
 for year in quarter_range.keys() :
     for quarter in quarter_range[year] :
-        df_new = pd.DataFrame(0, index=targ_idx_set, columns=['公司']+list(targ_col_set))
+        df_new = pd.DataFrame(0, index=targ_idx_set, columns=[u'公司']+list(targ_col_set))
         for co_id in target_stocks:
             target_idx = [str(co_id)]
-            df_new.loc[target_idx, '公司'] = ref_df.loc[co_id, '公司']
+            df_new.loc[target_idx, u'公司'] = ref_df.loc[co_id, u'公司']
             # get data from source tables
             for src_idx in summary_columns.keys():
                 (suffix_now, target_col) = summary_columns[src_idx]
