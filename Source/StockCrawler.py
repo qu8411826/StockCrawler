@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 import os
 
-from quarterly_statement import quarterly_statement
+from combined_quarterly_statement import combined_quarterly_statement
 from combined_monthly_revenue_report import combined_monthly_revenue_report
 from individual_quarterly_report import individual_quarterly_report
 from individual_monthly_trading_record import individual_monthly_trading_record
@@ -40,15 +40,15 @@ ref_df = ref_df.set_index("代號")
 target_stocks = list(ref_df.index)
 
 quarter_range = {
-#        2013: range(1,5),
-#        2014: range(1,5),
-#        2015: range(1,5),
+        2013: range(1,5),
+        2014: range(1,5),
+        2015: range(1,5),
         2016: range(1,5),
-#        2017: range(1,4),
-#        2018: range(1,1) # as of 2018/03/11 no data for Q1 yet
+        2017: range(1,4),
+        2018: range(1,1) # as of 2018/03/11 no data for Q1 yet
 }
 
-"""
+
 combined_quarterly_tables = [
         'SII綜合損益彙總表',
         'OTC綜合損益彙總表',
@@ -101,7 +101,7 @@ for year in quarter_range.keys() :
             xls_writer = pd.ExcelWriter(xls_file_name, engine='xlsxwriter')
             for table_now in combined_quarterly_tables:
                 sheet_name = table_now + '_' + str(year)+ 'Q'+str(quarter)
-                df_now = quarterly_statement(year, quarter, table_now)
+                df_now = combined_quarterly_statement(year, quarter, table_now)
                 raw_quarterly_table[sheet_name] = df_now
                 if (df_now is None): continue
                 print("Writing %s to %s" %(sheet_name, xls_file_name))
@@ -117,7 +117,7 @@ for year in quarter_range.keys() :
             xls_writer.save()
     # end of quarter loop
 # end of year loop
-"""
+
 
 # Get quarterly 資產負債表
 raw_individual_quarterly_asset = {}
@@ -131,7 +131,7 @@ for year in quarter_range.keys() :
             os.stat(directory)
         except:
             os.mkdir(directory)      
-        for co_id in target_stocks :
+        for co_idx, co_id in enumerate(target_stocks) :
             co_name = ref_df.loc[co_id, '公司']
             if (co_id in IPO_Date.keys()) : # this stock is still young
                 if (year < IPO_Date[co_id][0] or (year == IPO_Date[co_id][0] and quarter <= ((IPO_Date[co_id][1]/3)+1))) :
@@ -155,6 +155,7 @@ for year in quarter_range.keys() :
                 xls_reader.close()
                 raw_individual_quarterly_asset[str(year)][quarter-1] = df_now
             else :
+                print("Crawling %s for %d:%d %s %dQ%d" %('資產負債表', co_idx, co_id, co_name, year, quarter))
                 df_now = individual_quarterly_report('資產負債表', co_id, co_name, year, quarter)
                 if (df_now is not None) :
                     print("Success, writing %s to %s" %(sheet_name, xls_file_name))
@@ -171,6 +172,7 @@ for year in quarter_range.keys() :
 
 # Get quarterly 現金流量表
 raw_individual_quarterly_cashflow = {}
+num_crawler_called = 0
 #for co_id in list(raw_monthly_table[sheet_name]['公司代號'])
 for year in quarter_range.keys() :
     raw_individual_quarterly_cashflow[str(year)] = [[], [], [], []]
@@ -181,13 +183,13 @@ for year in quarter_range.keys() :
             os.stat(directory)
         except:
             os.mkdir(directory)      
-        for co_id in target_stocks :
+        for co_idx, co_id in enumerate(target_stocks) :
             co_name = ref_df.loc[co_id, '公司']
             if (co_id in IPO_Date.keys()) : # this stock is still young
                 if (year < IPO_Date[co_id][0] or (year == IPO_Date[co_id][0] and quarter <= ((IPO_Date[co_id][1]/3)+1))) :
                     print("%s is not IPO yet in %sQ%s" %(co_name, year, quarter))
                     continue;
-            xls_file_name = path_name+'quarterly_indivisual_caseflow_'+ str(year)+'Q'+str(quarter)+'_'+str(co_id)+'.xlsx'
+            xls_file_name = path_name+'quarterly_indivisual_cashflow_'+ str(year)+'Q'+str(quarter)+'_'+str(co_id)+'.xlsx'
             sheet_name = str(co_id) + '_' + co_name
             xls_file = Path(xls_file_name)
             if (xls_file.is_file()) :
@@ -203,6 +205,7 @@ for year in quarter_range.keys() :
                 xls_reader.close()
                 raw_individual_quarterly_cashflow[str(year)][quarter-1] = df_now
             else :
+                print("Crawling %s for %d:%d %s %dQ%d" %('現金流量表 ', co_idx, co_id, co_name, year, quarter))
                 df_now = individual_quarterly_report('現金流量表', co_id, co_name, year, quarter)
                 if (df_now is not None) :
                     print("Success, writing %s to %s" %(sheet_name, xls_file_name))
@@ -212,6 +215,10 @@ for year in quarter_range.keys() :
                     raw_individual_quarterly_cashflow[str(year)][quarter-1] = df_now
                 else :
                     print("Error: can't get %s for %s" %(sheet_name, xls_file_name))
+                num_crawler_called += 1
+            if (num_crawler_called % 30 == 29):
+                print("Pause a while to avoid rejection")
+                time.sleep(15)
         # done looping companies
     # done looping quarter
 # done looping year
