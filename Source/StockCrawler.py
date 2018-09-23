@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 import os
   
-quarterly_tables = [
+combined_quarterly_tables = [
         'SII綜合損益彙總表',
         'OTC綜合損益彙總表',
         'SII資產負債彙總表',
@@ -17,18 +17,25 @@ quarterly_tables = [
         'SII營益分析彙總表',
         'OTC營益分析彙總表']
 
-monthly_tables = [
+combined_monthly_tables = [
         'SII每月營業收入彙總表',
         'OTC每月營業收入彙總表']
 
 # main configurations
-year_range = range(2013,2019)
 quarter_range = {
-        2013: range(1,5),
-        2014: range(1,5),
-        2015: range(1,5),
-        2016: range(1,5),
-        2017: range(1,5),
+#        2013: range(1,5),
+#        2014: range(1,5),
+#        2015: range(1,5),
+#        2016: range(1,5),
+        2017: range(1,4),
+        2018: range(1,1) # as of 2018/03/11 no data for Q1 yet
+}
+month_range = {
+#        2013: range(1,13),
+#        2014: range(1,13),
+#        2015: range(1,13),
+#        2016: range(1,13),
+        2017: range(1,13),
         2018: range(1,1) # as of 2018/03/11 no data for Q1 yet
 }
 update_latest_monthly = False # flag to update un-finished or latest monthly reports
@@ -62,9 +69,10 @@ ref_xls_reader.close()
 ref_df = ref_df.set_index("代號")
 target_stocks = list(ref_df.index)
 
+"""
 # get 月成交資訊 trading record for interested stocks
 raw_individual_annual_trading_table = {}
-for year in year_range :
+for year in quarter_range.keys() :
     path_name = './'+str(year)+'/'
     directory = os.path.dirname(path_name)
     try:
@@ -122,7 +130,7 @@ for year in year_range :
 
 raw_quarterly_table = {}
 raw_monthly_table = {}
-for year in year_range :
+for year in quarter_range.keys() :
     for quarter in quarter_range[year] :
         path_name = './'+str(year)+'/Q'+str(quarter)+'/'
         directory = os.path.dirname(path_name)
@@ -135,7 +143,7 @@ for year in year_range :
         if (xls_file.is_file()) :
             # xls file exists, read tables from xls
             xls_reader = pd.ExcelFile(xls_file_name)
-            for table_now in quarterly_tables:
+            for table_now in combined_quarterly_tables:
                 sheet_name = table_now + '_' + str(year)+ 'Q'+str(quarter)
                 print("Reading %s from %s" %(sheet_name, xls_file_name))
                 try:
@@ -145,7 +153,7 @@ for year in year_range :
                     df_now = None
                 raw_quarterly_table[sheet_name] = df_now
             for month in range((quarter-1)*3+1, (quarter-1)*3+4) :
-                for table_now in monthly_tables:
+                for table_now in combined_monthly_tables:
                     sheet_name = table_now + '_' + str(year) + '_' + str(month)
                     print("Reading %s from %s" %(sheet_name, xls_file_name))
                     try:
@@ -158,7 +166,7 @@ for year in year_range :
         else :
             # read tables from web and save to xls
             xls_writer = pd.ExcelWriter(xls_file_name, engine='xlsxwriter')
-            for table_now in quarterly_tables:
+            for table_now in combined_quarterly_tables:
                 sheet_name = table_now + '_' + str(year)+ 'Q'+str(quarter)
                 df_now = quarterly_statement(year, quarter, table_now)
                 raw_quarterly_table[sheet_name] = df_now
@@ -166,7 +174,7 @@ for year in year_range :
                 print("Writing %s to %s" %(sheet_name, xls_file_name))
                 df_now.to_excel(xls_writer, sheet_name=sheet_name)
             for month in range((quarter-1)*3+1, (quarter-1)*3+4) :
-                for table_now in monthly_tables:
+                for table_now in combined_monthly_tables:
                     sheet_name = table_now + '_' + str(year) + '_' + str(month)
                     df_now = combined_monthly_revenue_report(year, month, table_now)
                     raw_monthly_table[sheet_name] = df_now
@@ -176,12 +184,12 @@ for year in year_range :
             xls_writer.save()
     # end of quarter loop
 # end of year loop
-
-# Get quarterly 個別財務報表
 """
+
+# Get quarterly 資產負債表
 raw_individual_quarterly_asset = {}
 #for co_id in list(raw_monthly_table[sheet_name]['公司代號'])
-for year in year_range :
+for year in quarter_range.keys() :
     raw_individual_quarterly_asset[str(year)] = [[], [], [], []]
     for quarter in quarter_range[year] :
         path_name = './'+str(year)+'/Q'+str(quarter)+'/'
@@ -191,10 +199,62 @@ for year in year_range :
         except:
             os.mkdir(directory)      
         for co_id in target_stocks :
-            xls_file_name = path_name+'quarterly_indivisual_asset_'+ str(year)+'Q'+str(quarter)+'_'+str(co_id)+'.xlsx'
             co_name = ref_df.loc[co_id, '公司']
-            type_k = 'sii'
-            if ref_df.loc[co_id, 'TYPE_K'] == '上櫃' : type_k = 'otc'
+            if (co_id in IPO_Date.keys()) : # this stock is still young
+                if (year < IPO_Date[co_id][0] or (year == IPO_Date[co_id][0] and quarter <= ((IPO_Date[co_id][1]/3)+1))) :
+                    print("%s is not IPO yet in %sQ%s" %(co_name, year, quarter))
+                    continue;
+            xls_file_name = path_name+'quarterly_indivisual_asset_'+ str(year)+'Q'+str(quarter)+'_'+str(co_id)+'.xlsx'
+            sheet_name = str(co_id) + '_' + co_name
+            xls_file = Path(xls_file_name)
+            if (xls_file.is_file()) :
+                # xls file exists, read tables from xls
+                print("Reading %s from %s" %(sheet_name, xls_file_name))
+                xls_reader = pd.ExcelFile(xls_file_name)
+                df_now = xls_reader.parse(sheet_name)
+                # use next line as column if it wasn't properly set
+                if (df_now.columns[0] == 0): df_now.columns = df_now.iloc[0]
+                if ('會計項目' in df_now.columns):
+                    df_now.set_index('會計項目')
+                else :
+                    assert('會計科目' in df_now.columns)
+                    df_now.set_index('會計科目')
+                xls_reader.close()
+                raw_individual_quarterly_asset[str(year)][quarter-1] = df_now
+            else :
+                df_now = individual_quarterly_report('資產負債表', co_id, co_name, year, quarter)
+                if (df_now is not None) :
+                    print("Success, writing %s to %s" %(sheet_name, xls_file_name))
+                    xls_writer = pd.ExcelWriter(xls_file_name, engine='xlsxwriter')
+                    df_now.to_excel(xls_writer, sheet_name=sheet_name)
+                    xls_writer.save()
+                    raw_individual_quarterly_asset[str(year)][quarter-1] = df_now
+                else :
+                    print("Error: can't get %s for %s" %(sheet_name, xls_file_name))
+        # done looping companies
+    # done looping quarter
+# done looping year
+
+
+# Get quarterly 現金流量表
+raw_individual_quarterly_cashflow = {}
+#for co_id in list(raw_monthly_table[sheet_name]['公司代號'])
+for year in quarter_range.keys() :
+    raw_individual_quarterly_cashflow[str(year)] = [[], [], [], []]
+    for quarter in quarter_range[year] :
+        path_name = './'+str(year)+'/Q'+str(quarter)+'/'
+        directory = os.path.dirname(path_name)
+        try:
+            os.stat(directory)
+        except:
+            os.mkdir(directory)      
+        for co_id in target_stocks :
+            co_name = ref_df.loc[co_id, '公司']
+            if (co_id in IPO_Date.keys()) : # this stock is still young
+                if (year < IPO_Date[co_id][0] or (year == IPO_Date[co_id][0] and quarter <= ((IPO_Date[co_id][1]/3)+1))) :
+                    print("%s is not IPO yet in %sQ%s" %(co_name, year, quarter))
+                    continue;
+            xls_file_name = path_name+'quarterly_indivisual_caseflow_'+ str(year)+'Q'+str(quarter)+'_'+str(co_id)+'.xlsx'
             sheet_name = str(co_id) + '_' + co_name
             xls_file = Path(xls_file_name)
             if (xls_file.is_file()) :
@@ -208,56 +268,9 @@ for year in year_range :
                     assert('會計科目' in df_now.columns)
                     df_now.set_index('會計科目')
                 xls_reader.close()
-                raw_individual_quarterly_asset[str(year)][quarter-1] = df_now
-            else :
-                df_now = individual_quarterly_report('個別財務報表', type_k, co_id, co_name, year, quarter)
-                if (df_now is not None) :
-                    print("Success, writing %s to %s" %(sheet_name, xls_file_name))
-                    xls_writer = pd.ExcelWriter(xls_file_name, engine='xlsxwriter')
-                    df_now.to_excel(xls_writer, sheet_name=sheet_name)
-                    xls_writer.save()
-                    raw_individual_quarterly_asset[str(year)][quarter-1] = df_now
-                else :
-                    print("Error: can't get %s for %s" %(sheet_name, xls_file_name))
-                time.sleep(2)
-        # done looping companies
-    # done looping quarter
-# done looping year
-"""
-
-# Get quarterly 個別財務報表
-raw_individual_quarterly_cashflow = {}
-#for co_id in list(raw_monthly_table[sheet_name]['公司代號'])
-for year in year_range :
-    raw_individual_quarterly_cashflow[str(year)] = [[], [], [], []]
-    for quarter in quarter_range[year] :
-        path_name = './'+str(year)+'/Q'+str(quarter)+'/'
-        directory = os.path.dirname(path_name)
-        try:
-            os.stat(directory)
-        except:
-            os.mkdir(directory)      
-        for co_id in target_stocks :
-            xls_file_name = path_name+'quarterly_indivisual_caseflow_'+ str(year)+'Q'+str(quarter)+'_'+str(co_id)+'.xlsx'
-            co_name = ref_df.loc[co_id, '公司']
-            type_k = 'sii'
-            if ref_df.loc[co_id, 'TYPE_K'] == '上櫃' : type_k = 'otc'
-            sheet_name = str(co_id) + '_' + co_name
-            xls_file = Path(xls_file_name)
-            if (xls_file.is_file()) :
-                # xls file exists, read tables from xls
-                print("Reading %s from %s" %(sheet_name, xls_file_name))
-                xls_reader = pd.ExcelFile(xls_file_name)
-                df_now = xls_reader.parse(sheet_name)
-                if ('營業活動之現金流量-間接法' in df_now.columns):
-                    df_now.set_index('營業活動之現金流量-間接法')
-                else :
-                    assert('會計科目' in df_now.columns)
-                    df_now.set_index('會計科目')
-                xls_reader.close()
                 raw_individual_quarterly_cashflow[str(year)][quarter-1] = df_now
             else :
-                df_now = individual_quarterly_report('個別現金流量表', type_k, co_id, co_name, year, quarter)
+                df_now = individual_quarterly_report('現金流量表', co_id, co_name, year, quarter)
                 if (df_now is not None) :
                     print("Success, writing %s to %s" %(sheet_name, xls_file_name))
                     xls_writer = pd.ExcelWriter(xls_file_name, engine='xlsxwriter')
@@ -266,7 +279,6 @@ for year in year_range :
                     raw_individual_quarterly_cashflow[str(year)][quarter-1] = df_now
                 else :
                     print("Error: can't get %s for %s" %(sheet_name, xls_file_name))
-                time.sleep(2)
         # done looping companies
     # done looping quarter
 # done looping year
