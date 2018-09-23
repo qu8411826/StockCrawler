@@ -28,9 +28,9 @@ IPO_Date = {
 }
 
 # read target stock list
-ref_xls_file_name = "HG交易系統.xlsx"
+ref_xls_file_name = "HG交易系統complete.xlsx"
 ref_xls_file = Path(ref_xls_file_name)
-if (not ref_xls_file.is_file()) :
+if not ref_xls_file.is_file() :
     exit("Please prepare %s for target stock list" %ref_xls_file_name)
 # xls file exists, read tables from xls
 ref_xls_reader = pd.ExcelFile(ref_xls_file_name)
@@ -39,16 +39,14 @@ ref_xls_reader.close()
 ref_df = ref_df.set_index("代號")
 target_stocks = list(ref_df.index)
 
-
-
 # get 月成交資訊 trading record for interested stocks
 month_range = {
-        2013: range(1,13),
-        2014: range(1,13),
-#        2015: range(1,13),
-#        2016: range(1,13),
-#        2017: range(1,13),
-#        2018: range(1,1) # as of 2018/03/11 no data for Q1 yet
+#    2013: range(1,13),
+#    2014: range(1,13),
+#    2015: range(1,13),
+#    2016: range(1,13),
+#    2017: range(1,13),
+#    2018: range(1,2) # as of 2018/03/11 no data for Q1 yet
 }
 update_latest_monthly = False # flag to update un-finished or latest monthly reports
 raw_individual_monthly_trading_table = {}
@@ -66,7 +64,7 @@ for year in year_range :
             if (year < IPO_Date[co_id][0]):
                 continue
         co_name = ref_df.loc[co_id, '公司']
-        sheet_name = "%s_%d_%s" %(month_string, co_id, co_name)
+        sheet_name = "%s_%d" %(month_string, co_id)
         xls_file_name = path_name + month_string + '_' + str(co_id) + '.xlsx'
         xls_file_now = Path(xls_file_name)
         if (xls_file_now.is_file()) :
@@ -75,7 +73,11 @@ for year in year_range :
             try:
                 df_now = xls_reader.parse(sheet_name)
             except:
-                df_now = None
+                sheet_name_with_co_name = "%s_%d_%s" %(month_string, co_id, co_name)
+                try:
+                    df_now = xls_reader.parse(sheet_name_with_co_name)
+                except:
+                    df_now = None
             # end of co_id loop
             xls_reader.close()
             if (df_now is not None):
@@ -109,14 +111,13 @@ for year in year_range :
 # end of year loop
 
 
-"""
 quarter_range = {
         2013: range(1,5),
-        2014: range(1,5),
-        2015: range(1,5),
-        2016: range(1,5),
-        2017: range(1,4),
-        2018: range(1,1) # as of 2018/03/11 no data for Q1 yet
+#        2014: range(2,5),
+#        2015: range(2,5),
+#        2016: range(1,5),
+#        2017: range(1,5), # as of 2018/03/18 no data for Q4'17 yet
+#        2018: range(1,1) # as of 2018/03/11 no data for Q1 yet
 }
 
 combined_quarterly_tables = [
@@ -188,20 +189,17 @@ for year in quarter_range.keys() :
     # end of quarter loop
 # end of year loop
 
-raw_individual_quarterly_asset = {}
-raw_individual_quarterly_cashflow = {}
-raw_individual_quarterly_pnl = {}
+iq_tables = {}
 
-individual_quarterly_tables = {
-    '資產負債表': (raw_individual_quarterly_asset, 'asset_'),
-    '現金流量表': (raw_individual_quarterly_cashflow, 'cashflow_'),
-    '綜合損益表': (raw_individual_quarterly_pnl, 'pnl_')
+iq_dict = {
+    '資產負債表': 'asset_',
+    '現金流量表': 'cashflow_',
+    '綜合損益表': 'pnl_'
 }
 
-for iqt_now in individual_quarterly_tables.keys() :
-    (raw_table_now, xls_suffix) = individual_quarterly_tables[iqt_now]
+for iqd_now in iq_dict.keys() :
+    xls_suffix = iq_dict[iqd_now]
     for year in quarter_range.keys() :
-        raw_table_now[str(year)] = [[], [], [], []]
         for quarter in quarter_range[year] :
             path_name = './'+str(year)+'/Q'+str(quarter)+'/'
             directory = os.path.dirname(path_name)
@@ -209,46 +207,98 @@ for iqt_now in individual_quarterly_tables.keys() :
                 os.stat(directory)
             except:
                 os.mkdir(directory)      
-            for co_idx, co_id in enumerate(target_stocks) :
+            for co_id in target_stocks:
                 co_name = ref_df.loc[co_id, '公司']
                 if (co_id in IPO_Date.keys()) : # this stock is still young
                     if (year < IPO_Date[co_id][0] or (year == IPO_Date[co_id][0] and quarter <= ((IPO_Date[co_id][1]/3)+1))) :
                         print("%s is not IPO yet in %sQ%s" %(co_name, year, quarter))
                         continue;
-                xls_file_name = path_name+'quarterly_indivisual_'+xls_suffix+str(year)+'Q'+str(quarter)+'_'+str(co_id)+'.xlsx'
-                sheet_name = str(co_id) + '_' + co_name
+                table_name = 'quarterly_individual_'+xls_suffix+str(year)+str(quarter)+'_'+str(co_id)
+                xls_file_name = path_name + table_name + '.xlsx'
+                sheet_name = xls_suffix+str(year)+str(quarter)+'_'+str(co_id)
                 xls_file = Path(xls_file_name)
                 if (xls_file.is_file()) :
                     # xls file exists, read tables from xls
-                    print("Reading %s of %s from %s" %(table_name_now, sheet_name, xls_file_name))
+                    print("Reading %s %d %s from %s@%s" %(iqd_now, co_id, co_name, sheet_name, xls_file_name))
                     xls_reader = pd.ExcelFile(xls_file_name)
                     df_now = xls_reader.parse(sheet_name)
                     # use next line as column if it wasn't properly set
                     if (df_now.columns[0] == 0): df_now.columns = df_now.iloc[0]
                     if ('會計項目' in df_now.columns):
-                        df_now.set_index('會計項目')
+                        df_now = df_now.set_index('會計項目')
                     else :
                         assert('會計科目' in df_now.columns)
-                        df_now.set_index('會計科目')
+                        df_now = df_now.set_index('會計科目')
                     xls_reader.close()
-                    raw_table_now[str(year)][quarter-1] = df_now
+                    df_now = df_now.drop_duplicates(keep='last')
+                    iq_tables[table_name] = df_now
                 else :
-                    print("Crawling %s for %d:%d %s %dQ%d" %(iqt_now, co_idx, co_id, co_name, year, quarter))
-                    df_now = individual_quarterly_report(iqt_now, co_id, co_name, year, quarter)
+                    print("Crawling %s for %d %s %dQ%d" %(iqd_now, co_id, co_name, year, quarter))
+                    df_now = individual_quarterly_report(iqd_now, co_id, co_name, year, quarter)
                     if (df_now is not None) :
                         print("Success, writing %s to %s" %(sheet_name, xls_file_name))
                         xls_writer = pd.ExcelWriter(xls_file_name, engine='xlsxwriter')
                         df_now.to_excel(xls_writer, sheet_name=sheet_name)
                         xls_writer.save()
-                        raw_table_now[str(year)][quarter-1] = df_now
+                        df_now = df_now.drop_duplicates(keep='last')
+                        iq_tables[table_name] = df_now
                     else :
                         print("Error: can't get %s for %s" %(sheet_name, xls_file_name))
             # done looping companies
         # done looping quarter
     # done looping year
 # done looping tables
-"""
+
 
 
 print ("Finished DataFrame preparation! Next step is to prepare data into Excel Stock model!")
 
+def summarize_table_for_amy():
+    summary_columns = {
+            "現金及約當現金總額": ('asset_', "現金及約當現金"),
+            "現金及約當現金合計": ('asset_', "現金及約當現金"),
+            "應收票據淨額": ("asset_", "應收"),
+            "應收帳款淨額": ("asset_", "應收"),
+            "存貨合計":("asset_", "存貨"),
+            "無形資產合計": ("asset_", "無形資產"),
+            "營業活動之淨現金流入（流出）":("cashflow_", "淨現金流"),
+            "投資活動之淨現金流入（流出）":("cashflow_", "淨現金流"),
+            "籌資活動之淨現金流入（流出）":("cashflow_", "淨現金流")}
+    
+    # prepare columns of summary table
+    targ_col_list = [summary_columns[idx_now][1] for idx_now in summary_columns.keys()]
+    targ_col_list += summary_columns.keys()
+    targ_col_set = set(targ_col_list)
+    targ_idx_set = [str(co_id) for co_id in target_stocks]
+    for year in quarter_range.keys() :
+        for quarter in quarter_range[year] :
+            df_new = pd.DataFrame(0, index=targ_idx_set, columns=['公司']+list(targ_col_set))
+            for co_id in target_stocks:
+                target_idx = [str(co_id)]
+                df_new.loc[target_idx, '公司'] = ref_df.loc[co_id, '公司']
+                # get data from source tables
+                for src_idx in summary_columns.keys():
+                    (suffix_now, target_col) = summary_columns[src_idx]
+                    table_name = 'quarterly_individual_'+suffix_now+str(year)+str(quarter)+'_'+str(co_id)
+                    print("Working on %s in %s" %(src_idx, table_name))
+                    if (table_name not in iq_tables.keys()):
+                        if (co_id in IPO_Date.keys()): # this stock is still young
+                            if (year*12+quarter*3) <= (IPO_Date[co_id][0]*12+IPO_Date[co_id][1]*3+3): continue
+                        assert(0) # why don't we have this table?
+                    df_now = iq_tables[table_name]
+                    if (src_idx in df_now.index):
+                        value_now = float(df_now[df_now.columns[0]][src_idx])
+                        # cashflow numbers are quarterly cumulated
+                        if (suffix_now == 'cashflow_' and quarter > 1):
+                            table_last = 'quarterly_individual_'+suffix_now+str(year)+str(quarter)+'_'+str(co_id)
+                            df_last = iq_tables[table_last]
+                            value_now -= float(df_last[df_now.columns[0]][src_idx])
+                        df_new.loc[target_idx, target_col] += value_now
+                        if (target_col != src_idx):
+                            df_new.loc[target_idx, src_idx] = value_now
+            csv_file_name = 'cashflow_'+str(year)+str(quarter)+'.csv'
+            df_new.to_csv(csv_file_name, encoding='utf_8_sig')
+
+if __name__ == '__main__':
+    summarize_table_for_amy()
+    
