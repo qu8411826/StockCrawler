@@ -28,16 +28,17 @@ IPO_Date = {
 }
 
 # read target stock list
-ref_xls_file_name = "HG交易系統complete.xlsx"
+ref_xls_file_name = "HGcomplete.xls"
 ref_xls_file = Path(ref_xls_file_name)
 if not ref_xls_file.is_file() :
     exit("Please prepare %s for target stock list" %ref_xls_file_name)
 # xls file exists, read tables from xls
-ref_xls_reader = pd.ExcelFile(ref_xls_file_name)
-ref_df = ref_xls_reader.parse("儀表板")
+ref_xls_reader = pd.ExcelFile(ref_xls_file_name, encoding='utf-8')
+ref_df = ref_xls_reader.parse("Dashboard")
 ref_xls_reader.close()
-ref_df = ref_df.set_index("代號")
+ref_df = ref_df.set_index('代號')
 target_stocks = list(ref_df.index)
+#target_stocks = [1101]
 
 # get 月成交資訊 trading record for interested stocks
 month_range = {
@@ -46,7 +47,7 @@ month_range = {
 #    2015: range(1,13),
 #    2016: range(1,13),
 #    2017: range(1,13),
-#    2018: range(1,2) # as of 2018/03/11 no data for Q1 yet
+    2018: range(1,2) # as of 2018/03/11 no data for Q1 yet
 }
 update_latest_monthly = False # flag to update un-finished or latest monthly reports
 raw_individual_monthly_trading_table = {}
@@ -253,52 +254,51 @@ for iqd_now in iq_dict.keys() :
 
 print ("Finished DataFrame preparation! Next step is to prepare data into Excel Stock model!")
 
-def summarize_table_for_amy():
-    summary_columns = {
-            "現金及約當現金總額": ('asset_', "現金及約當現金"),
-            "現金及約當現金合計": ('asset_', "現金及約當現金"),
-            "應收票據淨額": ("asset_", "應收"),
-            "應收帳款淨額": ("asset_", "應收"),
-            "存貨合計":("asset_", "存貨"),
-            "無形資產合計": ("asset_", "無形資產"),
-            "營業活動之淨現金流入（流出）":("cashflow_", "淨現金流"),
-            "投資活動之淨現金流入（流出）":("cashflow_", "淨現金流"),
-            "籌資活動之淨現金流入（流出）":("cashflow_", "淨現金流")}
-    
-    # prepare columns of summary table
-    targ_col_list = [summary_columns[idx_now][1] for idx_now in summary_columns.keys()]
-    targ_col_list += summary_columns.keys()
-    targ_col_set = set(targ_col_list)
-    targ_idx_set = [str(co_id) for co_id in target_stocks]
-    for year in quarter_range.keys() :
-        for quarter in quarter_range[year] :
-            df_new = pd.DataFrame(0, index=targ_idx_set, columns=['公司']+list(targ_col_set))
-            for co_id in target_stocks:
-                target_idx = [str(co_id)]
-                df_new.loc[target_idx, '公司'] = ref_df.loc[co_id, '公司']
-                # get data from source tables
-                for src_idx in summary_columns.keys():
-                    (suffix_now, target_col) = summary_columns[src_idx]
-                    table_name = 'quarterly_individual_'+suffix_now+str(year)+str(quarter)+'_'+str(co_id)
-                    print("Working on %s in %s" %(src_idx, table_name))
-                    if (table_name not in iq_tables.keys()):
-                        if (co_id in IPO_Date.keys()): # this stock is still young
-                            if (year*12+quarter*3) <= (IPO_Date[co_id][0]*12+IPO_Date[co_id][1]*3+3): continue
-                        assert(0) # why don't we have this table?
-                    df_now = iq_tables[table_name]
-                    if (src_idx in df_now.index):
-                        value_now = float(df_now[df_now.columns[0]][src_idx])
-                        # cashflow numbers are quarterly cumulated
-                        if (suffix_now == 'cashflow_' and quarter > 1):
-                            table_last = 'quarterly_individual_'+suffix_now+str(year)+str(quarter)+'_'+str(co_id)
-                            df_last = iq_tables[table_last]
-                            value_now -= float(df_last[df_now.columns[0]][src_idx])
-                        df_new.loc[target_idx, target_col] += value_now
-                        if (target_col != src_idx):
-                            df_new.loc[target_idx, src_idx] = value_now
-            csv_file_name = 'cashflow_'+str(year)+str(quarter)+'.csv'
-            df_new.to_csv(csv_file_name, encoding='utf_8_sig')
+summary_columns = {
+        "現金及約當現金總額": ('asset_', "現金及約當現金"),
+        "現金及約當現金合計": ('asset_', "現金及約當現金"),
+        "應收票據淨額": ("asset_", "應收"),
+        "應收帳款淨額": ("asset_", "應收"),
+        "存貨合計":("asset_", "存貨"),
+        "無形資產合計": ("asset_", "無形資產"),
+        "營業活動之淨現金流入（流出）":("cashflow_", "淨現金流"),
+        "投資活動之淨現金流入（流出）":("cashflow_", "淨現金流"),
+        "籌資活動之淨現金流入（流出）":("cashflow_", "淨現金流")}
 
-if __name__ == '__main__':
-    summarize_table_for_amy()
+# prepare columns of summary table
+targ_col_list = [summary_columns[idx_now][1] for idx_now in summary_columns.keys()]
+targ_col_list += summary_columns.keys()
+targ_col_set = set(targ_col_list)
+targ_idx_set = [str(co_id) for co_id in target_stocks]
+for year in quarter_range.keys() :
+    for quarter in quarter_range[year] :
+        df_new = pd.DataFrame(0, index=targ_idx_set, columns=['公司']+list(targ_col_set))
+        for co_id in target_stocks:
+            target_idx = [str(co_id)]
+            df_new.loc[target_idx, '公司'] = ref_df.loc[co_id, '公司']
+            # get data from source tables
+            for src_idx in summary_columns.keys():
+                (suffix_now, target_col) = summary_columns[src_idx]
+                table_name = 'quarterly_individual_'+suffix_now+str(year)+str(quarter)+'_'+str(co_id)
+                print("Working on %s in %s" %(src_idx, table_name))
+                if (table_name not in iq_tables.keys()):
+                    if (co_id in IPO_Date.keys()): # this stock is still young
+                        if (year*12+quarter*3) <= (IPO_Date[co_id][0]*12+IPO_Date[co_id][1]*3+3): continue
+                    assert(0) # why don't we have this table?
+                df_now = iq_tables[table_name]
+                if (src_idx in df_now.index):
+                    value_now = float(df_now[df_now.columns[0]][src_idx])
+                    # cashflow numbers are quarterly cumulated
+                    if (suffix_now == 'cashflow_' and quarter > 1):
+                        table_last = 'quarterly_individual_'+suffix_now+str(year)+str(quarter-1)+'_'+str(co_id)
+                        if (table_last in iq_tables.keys()):
+                            df_last = iq_tables[table_last]
+                            if (src_idx in df_last.index):
+                                value_now -= float(df_last[df_last.columns[0]][src_idx])
+                    df_new.loc[target_idx, target_col] += value_now
+                    if (target_col != src_idx):
+                        df_new.loc[target_idx, src_idx] = value_now
+        csv_file_name = 'cashflow_'+str(year)+str(quarter)+'.csv'
+        df_new.to_csv(csv_file_name, encoding='utf_8_sig')
+
     
